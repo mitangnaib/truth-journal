@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>时间轴视图 - Objective Journal</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #0f0;
+            font-weight: 300;
+        }
+        
+        .filters {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .filter-group label {
+            color: #888;
+            font-size: 14px;
+        }
+        
+        select, input {
+            background: #16213e;
+            border: 1px solid #0f3460;
+            color: #eee;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #0f0;
+        }
+        
+        .timeline {
+            position: relative;
+            padding-left: 30px;
+        }
+        
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 10px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: linear-gradient(to bottom, #0f0, #0f3460);
+        }
+        
+        .date-group {
+            margin-bottom: 40px;
+        }
+        
+        .date-header {
+            position: relative;
+            margin-bottom: 15px;
+            padding-left: 20px;
+        }
+        
+        .date-header::before {
+            content: '';
+            position: absolute;
+            left: -24px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 12px;
+            height: 12px;
+            background: #0f0;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #0f0;
+        }
+        
+        .date-header h2 {
+            font-size: 18px;
+            color: #0f0;
+            font-weight: 400;
+        }
+        
+        .date-header .weekday {
+            color: #666;
+            font-size: 14px;
+            margin-left: 10px;
+        }
+        
+        .entries {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .entry {
+            background: #16213e;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            padding: 15px;
+            position: relative;
+            transition: all 0.3s;
+        }
+        
+        .entry:hover {
+            border-color: #0f0;
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.1);
+        }
+        
+        .entry-time {
+            color: #0f0;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        
+        .entry-content {
+            color: #ddd;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+        
+        .entry-meta {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            font-size: 13px;
+        }
+        
+        .meta-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #888;
+        }
+        
+        .meta-item .icon {
+            font-size: 16px;
+        }
+        
+        .meta-item .value {
+            color: #0f0;
+        }
+        
+        .tags {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+        
+        .tag {
+            background: #0f3460;
+            color: #0f0;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+        
+        .has-emotion {
+            border-color: #f44;
+        }
+        
+        .has-emotion:hover {
+            border-color: #f44;
+            box-shadow: 0 0 15px rgba(255, 68, 68, 0.2);
+        }
+        
+        .emotion-warning {
+            background: rgba(255, 68, 68, 0.1);
+            border: 1px solid #f44;
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+        
+        .emotion-warning .label {
+            color: #f44;
+            font-weight: 500;
+        }
+        
+        .emotion-warning .words {
+            color: #f88;
+        }
+        
+        .connections {
+            position: absolute;
+            right: -100px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .connection-line {
+            width: 80px;
+            height: 2px;
+            background: linear-gradient(to right, #0f3460, transparent);
+            position: relative;
+        }
+        
+        .connection-dot {
+            position: absolute;
+            right: 0;
+            top: -3px;
+            width: 8px;
+            height: 8px;
+            background: #0f3460;
+            border-radius: 50%;
+        }
+        
+        .stats-panel {
+            background: #16213e;
+            border: 1px solid #0f3460;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .stats-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .stats-header h3 {
+            color: #0f0;
+            font-weight: 400;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        
+        .stat-item {
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            color: #0f0;
+            font-weight: 300;
+        }
+        
+        .stat-label {
+            color: #888;
+            font-size: 13px;
+            margin-top: 5px;
+        }
+        
+        .legend {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: #888;
+        }
+        
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        
+        .legend-dot.event { background: #0f0; }
+        .legend-dot.person { background: #0af; }
+        .legend-dot.location { background: #fa0; }
+        .legend-dot.emotion { background: #f44; }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .empty-state h3 {
+            font-weight: 400;
+            margin-bottom: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .timeline {
+                padding-left: 20px;
+            }
+            
+            .filters {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .connections {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📅 时间轴视图</h1>
+        
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-dot event"></div>
+                <span>事件</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot person"></div>
+                <span>人物</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot location"></div>
+                <span>地点</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-dot emotion"></div>
+                <span>情绪词</span>
+            </div>
+        </div>
+        
+        <div class="filters">
+            <div class="filter-group">
+                <label>时间范围：</label>
+                <select id="dateRange">
+                    <option value="week">本周</option>
+                    <option value="month">本月</option>
+                    <option value="year">今年</option>
+                    <option value="custom">自定义</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>人物：</label>
+                <select id="personFilter">
+                    <option value="">全部</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>地点：</label>
+                <select id="locationFilter">
+                    <option value="">全部</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label>事件类型：</label>
+                <select id="eventFilter">
+                    <option value="">全部</option>
+                    <option value="会议">会议</option>
+                    <option value="社交">社交</option>
+                    <option value="阅读">阅读</option>
+                    <option value="运动">运动</option>
+                    <option value="写作">写作</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="stats-panel">
+            <div class="stats-header">
+                <h3>📊 统计概览</h3>
+                <span id="dateRangeText" style="color: #888; font-size: 13px;"></span>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value" id="totalEntries">0</div>
+                    <div class="stat-label">记录条数</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="totalPeople">0</div>
+                    <div class="stat-label">见过的人</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="totalLocations">0</div>
+                    <div class="stat-label">去过的地方</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="emotionRate">0%</div>
+                    <div class="stat-label">情绪词污染率</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="timeline" class="timeline">
+            <!-- 动态填充 -->
+        </div>
+    </div>
+    
+    <script>
+        // 示例数据（实际使用时从 Obsidian 读取）
+        const sampleData = [
+            {
+                date: "2026-05-22",
+                weekday: "周五",
+                entries: [
+                    {
+                        time: "15:00",
+                        content: "和国栋在星巴克喝茶聊孩子教育",
+                        people: ["国栋"],
+                        location: "星巴克",
+                        event: "社交",
+                        tags: ["日志/事实"],
+                        hasEmotion: false,
+                        emotionWords: []
+                    },
+                    {
+                        time: "10:00",
+                        content: "开会讨论 Q3 营销方案，用时 2 小时",
+                        people: [],
+                        location: "公司",
+                        event: "会议",
+                        tags: ["日志/事实"],
+                        hasEmotion: false,
+                        emotionWords: []
+                    }
+                ]
+            },
+            {
+                date: "2026-05-21",
+                weekday: "周四",
+                entries: [
+                    {
+                        time: "20:00",
+                        content: "今天开会极其糟糕，浪费时间",
+                        people: [],
+                        location: "",
+                        event: "会议",
+                        tags: ["日志/事实"],
+                        hasEmotion: true,
+                        emotionWords: ["极其", "糟糕"]
+                    }
+                ]
+            }
+        ];
+        
+        // 渲染时间轴
+        function renderTimeline(data) {
+            const container = document.getElementById('timeline');
+            container.innerHTML = '';
+            
+            let totalEntries = 0;
+            let totalPeople = new Set();
+            let totalLocations = new Set();
+            let emotionCount = 0;
+            
+            data.forEach(day => {
+                const dateGroup = document.createElement('div');
+                dateGroup.className = 'date-group';
+                
+                const dateHeader = document.createElement('div');
+                dateHeader.className = 'date-header';
+                dateHeader.innerHTML = `
+                    <h2>${day.date}</h2>
+                    <span class="weekday">${day.weekday}</span>
+                `;
+                dateGroup.appendChild(dateHeader);
+                
+                const entries = document.createElement('div');
+                entries.className = 'entries';
+                
+                day.entries.forEach(entry => {
+                    totalEntries++;
+                    entry.people.forEach(p => totalPeople.add(p));
+                    if (entry.location) totalLocations.add(entry.location);
+                    if (entry.hasEmotion) emotionCount++;
+                    
+                    const entryDiv = document.createElement('div');
+                    entryDiv.className = `entry ${entry.hasEmotion ? 'has-emotion' : ''}`;
+                    
+                    let metaHtml = '';
+                    if (entry.people.length > 0) {
+                        metaHtml += `<div class="meta-item"><span class="icon">👤</span><span class="value">${entry.people.join(', ')}</span></div>`;
+                    }
+                    if (entry.location) {
+                        metaHtml += `<div class="meta-item"><span class="icon">📍</span><span class="value">${entry.location}</span></div>`;
+                    }
+                    if (entry.event) {
+                        metaHtml += `<div class="meta-item"><span class="icon">📌</span><span class="value">${entry.event}</span></div>`;
+                    }
+                    
+                    let tagsHtml = entry.tags.map(t => `<span class="tag">#${t}</span>`).join('');
+                    
+                    let emotionHtml = '';
+                    if (entry.hasEmotion) {
+                        emotionHtml = `
+                            <div class="emotion-warning">
+                                <span class="label">⚠️ 情绪词：</span>
+                                <span class="words">${entry.emotionWords.join(', ')}</span>
+                            </div>
+                        `;
+                    }
+                    
+                    entryDiv.innerHTML = `
+                        <div class="entry-time">${entry.time}</div>
+                        <div class="entry-content">${entry.content}</div>
+                        <div class="entry-meta">
+                            ${metaHtml}
+                            <div class="tags">${tagsHtml}</div>
+                        </div>
+                        ${emotionHtml}
+                    `;
+                    
+                    entries.appendChild(entryDiv);
+                });
+                
+                dateGroup.appendChild(entries);
+                container.appendChild(dateGroup);
+            });
+            
+            // 更新统计
+            document.getElementById('totalEntries').textContent = totalEntries;
+            document.getElementById('totalPeople').textContent = totalPeople.size;
+            document.getElementById('totalLocations').textContent = totalLocations.size;
+            document.getElementById('emotionRate').textContent = 
+                totalEntries > 0 ? Math.round(emotionCount / totalEntries * 100) + '%' : '0%';
+            
+            // 更新筛选器
+            updateFilters(data, totalPeople, totalLocations);
+        }
+        
+        function updateFilters(data, people, locations) {
+            const personFilter = document.getElementById('personFilter');
+            const locationFilter = document.getElementById('locationFilter');
+            
+            people.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p;
+                option.textContent = p;
+                personFilter.appendChild(option);
+            });
+            
+            locations.forEach(l => {
+                const option = document.createElement('option');
+                option.value = l;
+                option.textContent = l;
+                locationFilter.appendChild(option);
+            });
+        }
+        
+        // 初始化
+        renderTimeline(sampleData);
+        
+        // 筛选事件
+        document.querySelectorAll('.filters select').forEach(select => {
+            select.addEventListener('change', () => {
+                // 这里添加筛选逻辑
+                console.log('Filter changed');
+            });
+        });
+    </script>
+</body>
+</html>
